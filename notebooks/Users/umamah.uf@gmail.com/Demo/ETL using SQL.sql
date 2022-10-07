@@ -1,196 +1,76 @@
 -- Databricks notebook source
--- MAGIC %md <i18n value="7aa87ebc-24dd-4b39-bb02-7c59fa083a14"/>
--- MAGIC 
--- MAGIC 
--- MAGIC 
--- MAGIC # Managing Delta Tables
--- MAGIC 
--- MAGIC If you know any flavor of SQL, you already have much of the knowledge you'll need to work effectively in the data lakehouse.
--- MAGIC 
--- MAGIC In this notebook, we'll explore basic manipulation of data and tables with SQL on Databricks.
--- MAGIC 
--- MAGIC Note that Delta Lake is the default format for all tables created with Databricks; if you've been running SQL statements on Databricks, you're likely already working with Delta Lake.
--- MAGIC 
--- MAGIC ## Learning Objectives
--- MAGIC By the end of this lesson, you should be able to:
--- MAGIC * Create Delta Lake tables
--- MAGIC * Query data from Delta Lake tables
--- MAGIC * Insert, update, and delete records in Delta Lake tables
--- MAGIC * Write upsert statements with Delta Lake
--- MAGIC * Drop Delta Lake tables
+-- MAGIC %md
+-- MAGIC # Create a Delta Table
 
 -- COMMAND ----------
 
--- MAGIC %md <i18n value="3b9c0755-bf72-480e-a836-18a4eceb97d2"/>
--- MAGIC 
--- MAGIC 
--- MAGIC 
--- MAGIC ## Creating a Delta Table
--- MAGIC 
--- MAGIC There's not much code you need to write to create a table with Delta Lake. There are a number of ways to create Delta Lake tables that we'll see throughout the course. We'll begin with one of the easiest methods: registering an empty Delta Lake table.
--- MAGIC 
--- MAGIC We need: 
--- MAGIC - A **`CREATE TABLE`** statement
--- MAGIC - A table name (below we use **`students`**)
--- MAGIC - A schema
--- MAGIC 
--- MAGIC **NOTE:** In Databricks Runtime 8.0 and above, Delta Lake is the default format and you don’t need **`USING DELTA`**.
+CREATE TABLE employee
+  (id INT, employee_name STRING, salary DOUBLE);
 
 -- COMMAND ----------
 
-CREATE TABLE students
-  (id INT, name STRING, value DOUBLE);
+CREATE TABLE IF NOT EXISTS employee
+  (id INT, employee_name STRING, salary DOUBLE);
 
 -- COMMAND ----------
 
--- MAGIC %md <i18n value="a00174f3-bbcd-4ee3-af0e-b8d4ccb58481"/>
--- MAGIC 
--- MAGIC 
--- MAGIC 
--- MAGIC If we try to go back and run that cell again...it will error out! This is expected - because the table exists already, we receive an error.
--- MAGIC 
--- MAGIC We can add in an additional argument, **`IF NOT EXISTS`** which checks if the table exists. This will overcome our error.
+-- MAGIC %md
+-- MAGIC # Insert Data
 
 -- COMMAND ----------
 
-CREATE TABLE IF NOT EXISTS students 
-  (id INT, name STRING, value DOUBLE)
+INSERT INTO employee VALUES (1, "Sarah", 1000);
+INSERT INTO employee VALUES (2, "John", 1200);
+INSERT INTO employee VALUES (3, "Mark", 1500);
 
 -- COMMAND ----------
 
--- MAGIC %md <i18n value="408b1c71-b26b-43c0-b144-d5e92064a5ac"/>
--- MAGIC 
--- MAGIC 
--- MAGIC 
--- MAGIC ## Inserting Data
--- MAGIC Most often, data will be inserted to tables as the result of a query from another source.
--- MAGIC 
--- MAGIC However, just as in standard SQL, you can also insert values directly, as shown here.
+-- MAGIC %md
+-- MAGIC # Query a Delta Table
 
 -- COMMAND ----------
 
-INSERT INTO students VALUES (1, "Yve", 1.0);
-INSERT INTO students VALUES (2, "Omar", 2.5);
-INSERT INTO students VALUES (3, "Elia", 3.3);
+SELECT * FROM employee
 
 -- COMMAND ----------
 
--- MAGIC %md <i18n value="853dd803-9f64-42d7-b5e8-5477ea61029e"/>
--- MAGIC 
--- MAGIC 
--- MAGIC 
--- MAGIC In the cell above, we completed three separate **`INSERT`** statements. Each of these is processed as a separate transaction with its own ACID guarantees. Most frequently, we'll insert many records in a single transaction.
+-- MAGIC %md
+-- MAGIC # Update existing Records
 
 -- COMMAND ----------
 
-INSERT INTO students
-VALUES 
-  (4, "Ted", 4.7),
-  (5, "Tiffany", 5.5),
-  (6, "Vini", 6.3)
+UPDATE employee 
+SET salary = salary + 500
+WHERE employee_name ="Sarah"
 
 -- COMMAND ----------
 
--- MAGIC %md <i18n value="7972982a-05be-46ce-954e-e9d29e3b7329"/>
--- MAGIC 
--- MAGIC 
--- MAGIC 
--- MAGIC Note that Databricks doesn't have a **`COMMIT`** keyword; transactions run as soon as they're executed, and commit as they succeed.
+SELECT * FROM employee
 
 -- COMMAND ----------
 
--- MAGIC %md <i18n value="121bd36c-10c4-41fc-b730-2a6fb626c6af"/>
--- MAGIC 
--- MAGIC 
--- MAGIC 
--- MAGIC ## Querying a Delta Table
--- MAGIC 
--- MAGIC You probably won't be surprised that querying a Delta Lake table is as easy as using a standard **`SELECT`** statement.
+-- MAGIC %md
+-- MAGIC # Delete Records
 
 -- COMMAND ----------
 
-SELECT * FROM students
+DELETE FROM employee
+WHERE employee_name ="John"
 
 -- COMMAND ----------
 
--- MAGIC %md <i18n value="4ecaf351-d4a4-4803-8990-5864995287a4"/>
--- MAGIC 
--- MAGIC 
--- MAGIC 
--- MAGIC What may surprise you is that Delta Lake guarantees that any read against a table will **always** return the most recent version of the table, and that you'll never encounter a state of deadlock due to ongoing operations.
--- MAGIC 
--- MAGIC To repeat: table reads can never conflict with other operations, and the newest version of your data is immediately available to all clients that can query your lakehouse. Because all transaction information is stored in cloud object storage alongside your data files, concurrent reads on Delta Lake tables is limited only by the hard limits of object storage on cloud vendors. (**NOTE**: It's not infinite, but it's at least thousands of reads per second.)
+-- MAGIC %md 
+-- MAGIC # Using Merge
 
 -- COMMAND ----------
 
--- MAGIC %md <i18n value="8a379d8d-7c48-43b0-8e25-3e653d8d6e86"/>
--- MAGIC 
--- MAGIC 
--- MAGIC 
--- MAGIC ## Updating Records
--- MAGIC 
--- MAGIC Updating records provides atomic guarantees as well: we perform a snapshot read of the current version of our table, find all fields that match our **`WHERE`** clause, and then apply the changes as described.
--- MAGIC 
--- MAGIC Below, we find all students that have a name starting with the letter **T** and add 1 to the number in their **`value`** column.
-
--- COMMAND ----------
-
-UPDATE students 
-SET value = value + 1
-WHERE name LIKE "T%"
-
--- COMMAND ----------
-
--- MAGIC %md <i18n value="b307b3e7-5ed2-4df8-bdd5-6c25acfd072f"/>
--- MAGIC 
--- MAGIC 
--- MAGIC 
--- MAGIC Query the table again to see these changes applied.
-
--- COMMAND ----------
-
-SELECT * FROM students
-
--- COMMAND ----------
-
--- MAGIC %md <i18n value="d581b9a2-f450-43dc-bff3-2ea9cc46ad4c"/>
--- MAGIC 
--- MAGIC 
--- MAGIC 
--- MAGIC ## Deleting Records
--- MAGIC 
--- MAGIC Deletes are also atomic, so there's no risk of only partially succeeding when removing data from your data lakehouse.
--- MAGIC 
--- MAGIC A **`DELETE`** statement can remove one or many records, but will always result in a single transaction.
-
--- COMMAND ----------
-
-DELETE FROM students 
-WHERE value > 6
-
--- COMMAND ----------
-
--- MAGIC %md <i18n value="b5b346b8-a3df-45f2-88a7-8cf8dea6d815"/>
--- MAGIC 
--- MAGIC 
--- MAGIC 
--- MAGIC ## Using Merge
--- MAGIC 
--- MAGIC Some SQL systems have the concept of an upsert, which allows updates, inserts, and other data manipulations to be run as a single command.
--- MAGIC 
--- MAGIC Databricks uses the **`MERGE`** keyword to perform this operation.
--- MAGIC 
--- MAGIC Consider the following temporary view, which contains 4 records that might be output by a Change Data Capture (CDC) feed.
-
--- COMMAND ----------
-
-CREATE OR REPLACE TEMP VIEW updates(id, name, value, type) AS VALUES
-  (2, "Omar", 15.2, "update"),
-  (3, "", null, "delete"),
-  (7, "Blue", 7.7, "insert"),
-  (11, "Diya", 8.8, "update");
+CREATE OR REPLACE TEMP VIEW update_employees(id, employee_name, salary, type) AS VALUES
+  (2, "John", 1300, "insert"),
+  (3, "Mark", 1500, "delete"),
+  (4, "Hannah", 1250, "insert"),
+  (1, "Sarah", 2000, "update");
   
-SELECT * FROM updates;
+SELECT * FROM update_employees;
 
 -- COMMAND ----------
 
@@ -208,9 +88,9 @@ SELECT * FROM updates;
 
 -- COMMAND ----------
 
-MERGE INTO students b
-USING updates u
-ON b.id=u.id
+MERGE INTO employee a
+USING update_employees u
+ON a.id=u.id
 WHEN MATCHED AND u.type = "update"
   THEN UPDATE SET *
 WHEN MATCHED AND u.type = "delete"
@@ -220,26 +100,12 @@ WHEN NOT MATCHED AND u.type = "insert"
 
 -- COMMAND ----------
 
--- MAGIC %md <i18n value="77cee0a0-f94b-4016-a20b-08e4857d13db"/>
--- MAGIC 
--- MAGIC 
--- MAGIC 
--- MAGIC Note that only 3 records were impacted by our **`MERGE`** statement; one of the records in our updates table did not have a matching **`id`** in the students table but was marked as an **`update`**. Based on our custom logic, we ignored this record rather than inserting it. 
--- MAGIC 
--- MAGIC How would you modify the above statement to include unmatched records marked **`update`** in the final **`INSERT`** clause?
+-- MAGIC %md
+-- MAGIC # Drop Table
 
 -- COMMAND ----------
 
--- MAGIC %md <i18n value="4eca2c53-e457-4964-875e-d39d9205c3c6"/>
--- MAGIC 
--- MAGIC 
--- MAGIC 
--- MAGIC ## Dropping a Table
--- MAGIC 
--- MAGIC Assuming that you have proper permissions on the target table, you can permanently delete data in the lakehouse using a **`DROP TABLE`** command.
--- MAGIC 
--- MAGIC **NOTE**: Later in the course, we'll discuss Table Access Control Lists (ACLs) and default permissions. In a properly configured lakehouse, users should **not** be able to delete production tables.
+DROP TABLE employee
 
 -- COMMAND ----------
 
-DROP TABLE students
