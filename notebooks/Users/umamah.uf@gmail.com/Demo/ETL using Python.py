@@ -59,7 +59,7 @@ spark = SparkSession.builder.appName("Demo").getOrCreate()
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC # Mount Blob
+# MAGIC # Mount Storage Account
 # MAGIC * You can mount azure blob storage in databricks by specifying the storage account name, container name and access token.
 
 # COMMAND ----------
@@ -152,6 +152,24 @@ print(name)
 # COMMAND ----------
 
 # MAGIC %run /Users/umamah.uf@gmail.com/Demo/Test
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC # Check all mount points
+
+# COMMAND ----------
+
+dbutils.fs.mounts()
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC # Unmount Storage Account
+
+# COMMAND ----------
+
+dbutils.fs.unmount("/mnt/demo") 
 
 # COMMAND ----------
 
